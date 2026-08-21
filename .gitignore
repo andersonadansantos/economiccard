@@ -1,0 +1,4 @@
+.agents/
+*.zip
+Thumbs.db
+.DS_Store

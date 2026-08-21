@@ -1,0 +1,6 @@
+.agents/
+*.zip
+.git/
+.gitignore
+.dockerignore
+Dockerfile
