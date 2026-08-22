@@ -172,7 +172,7 @@ $cfg = $conn->query("SELECT * FROM api_pagamento WHERE id = 1")->fetch_assoc();
 <div>
 <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Porcentagem do parceiro (%)</label>
 <input type="number" name="porcentagem_parceiro" min="0" max="100" step="0.01" value="<?php echo htmlspecialchars(number_format((float)($cfg['porcentagem_parceiro'] ?? 0), 2, '.', '')); ?>" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#51036d]" placeholder="Ex.: 30">
-<p class="text-xs text-gray-500 mt-1">Quanto o parceiro ganha (% do valor do pagamento). O restante fica com a conta marketplace.</p>
+<p class="text-xs text-gray-500 mt-1">Quanto o parceiro ganha (% do valor do pagamento). O restante fica com a conta marketplace. Atenção: com o Split ativo, o Mercado Pago emite o PIX/cartão na conta do PARCEIRO (coletor) e repassa a parte da empresa automaticamente. Com porcentagem 0, o pagamento é emitido 100% pela conta da empresa.</p>
 </div>
 <div>
 <label class="block text-xs font-bold text-gray-600 uppercase mb-1">URL do Webhook</label>
