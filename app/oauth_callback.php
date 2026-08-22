@@ -51,14 +51,18 @@ if ($code === '') {
                     // Autorização do PARCEIRO (sócio): token vai para api_pagamento e
                     // o User ID dele é preenchido automaticamente — sem digitação manual.
                     $stmt = $conn->prepare("UPDATE api_pagamento SET parceiro_user_id = ?, parceiro_access_token = ?, parceiro_refresh_token = ?, parceiro_token_em = NOW() WHERE id = 1");
-                    $stmt->bind_param('sss', (string)$dados['user_id'], $dados['access_token'], $dados['refresh_token'] ?? '');
+                    $mpUserId = (string)$dados['user_id'];
+                    $mpAccessToken = (string)$dados['access_token'];
+                    $mpRefreshToken = (string)($dados['refresh_token'] ?? '');
+                    $stmt->bind_param('sss', $mpUserId, $mpAccessToken, $mpRefreshToken);
                     $stmt->execute();
                     if ($stmt->affected_rows >= 0) {
                         $salvo = 'Conta do PARCEIRO conectada (User ID ' . $dados['user_id'] . '). O Split já está habilitado para os próximos pagamentos.';
                     }
                 } elseif ($state !== '' && ctype_digit($state)) {
                     $stmt = $conn->prepare("UPDATE afiliados SET mp_user_id = ?, mp_access_token = ?, mp_refresh_token = ?, mp_token_em = NOW() WHERE id = ?");
-                    $stmt->bind_param('sssi', (string)$dados['user_id'], $dados['access_token'], $dados['refresh_token'] ?? '', (int)$state);
+                    $afiliadoId = (int)$state;
+                    $stmt->bind_param('sssi', $mpUserId, $mpAccessToken, $mpRefreshToken, $afiliadoId);
                     $stmt->execute();
                     if ($stmt->affected_rows > 0) {
                         $salvo = 'Conta conectada ao afiliado #' . (int)$state . '.';
