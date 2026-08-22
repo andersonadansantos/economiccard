@@ -60,7 +60,13 @@ if ($code === '') {
                 }
                 $sucesso = true;
             } else {
-                $msg = is_array($dados) ? ($dados['message'] ?? 'resposta inesperada') : $resp;
+                $msg = is_array($dados) ? ($dados['message'] ?? ($dados['error'] ?? json_encode($dados))) : substr((string)$resp, 0, 300);
+                if (($dados['error'] ?? '') === 'invalid_grant') {
+                    $msg .= ' — o código de autorização é de uso único e vale ~10 minutos. Gere uma nova autorização (não atualize esta página).';
+                }
+                if (($dados['error'] ?? '') === 'redirect_uri_mismatch') {
+                    $msg .= ' — confirme que a Redirect URI cadastrada na aplicação do Mercado Pago é exatamente: ' . $redirect_uri;
+                }
                 $erro = 'Erro ao trocar o código pelo token (HTTP ' . $httpCode . '): ' . $msg;
             }
         }
