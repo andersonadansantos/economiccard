@@ -7,13 +7,14 @@ if (file_exists(__DIR__ . '/secrets_local.php')) {
     require_once __DIR__ . '/secrets_local.php';
 }
 
-$host = getenv('DB_HOST') ?: 'localhost';
-$user = getenv('DB_USER') ?: 'root';
-$pass = getenv('DB_PASS') !== false ? getenv('DB_PASS') : '';
-$db   = getenv('DB_NAME') ?: 'economicacard';
+$host = getenv('DB_HOST') ?: (defined('DB_HOST') ? DB_HOST : 'localhost');
+$port = getenv('DB_PORT') ?: (defined('DB_PORT') ? DB_PORT : 3306);
+$user = getenv('DB_USER') ?: (defined('DB_USER') ? DB_USER : 'root');
+$pass = getenv('DB_PASS') !== false ? getenv('DB_PASS') : (defined('DB_PASS') ? DB_PASS : '');
+$db   = getenv('DB_NAME') ?: (defined('DB_NAME') ? DB_NAME : 'economicacard');
 
 try {
-    $conn = new mysqli($host, $user, $pass, $db);
+    $conn = new mysqli($host, $user, $pass, $db, (int)$port);
 } catch (mysqli_sql_exception $e) {
     http_response_code(503);
     die('Falha na conexao com o banco de dados. Verifique se o MySQL esta em execucao no XAMPP.');
