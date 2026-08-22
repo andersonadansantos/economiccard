@@ -3,8 +3,9 @@ FROM php:8.2-apache
 LABEL maintainer="andersonadansantos"
 LABEL description="Economic Card - Landing Page"
 
-# Habilita mod_rewrite (necessario para o .htaccess do app) e AllowOverride
-RUN a2enmod rewrite \
+# Habilita extensao mysqli e mod_rewrite (necessario para o .htaccess do app)
+RUN docker-php-ext-install mysqli \
+    && a2enmod rewrite \
     && sed -ri 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
 COPY . /var/www/html/
