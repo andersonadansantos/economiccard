@@ -15,7 +15,7 @@ $desbloqueado = !empty($_SESSION['api_pagamento_desbloqueado']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['desbloquear'])) {
     $senhaDigitada = preg_replace('/\D/', '', trim($_POST['senha'] ?? ''));
-    if ($senhaDigitada === $senhaApi) {
+    if ($senhaApi !== '' && $senhaDigitada === $senhaApi) {
         $_SESSION['api_pagamento_desbloqueado'] = true;
         header('Location: admin_api_pagamento.php');
         exit;
