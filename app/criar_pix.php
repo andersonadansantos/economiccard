@@ -83,7 +83,7 @@ $dados = json_decode($res, true);
 
 if (!empty($dados['id']) && !empty($dados['point_of_interaction']['transaction_data']['qr_code'])) {
     $t = $dados['point_of_interaction']['transaction_data'];
-    $stmt = $conn->prepare("INSERT INTO pagamentos_pix (usuario_id, plano_id, mp_payment_id, valor, descricao, qr_code_base64, qr_code_copia_cola, status, pix_validade) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', DATE_ADD(NOW(), INTERVAL 10 MINUTE))");
+    $stmt = $conn->prepare("INSERT INTO pagamentos_pix (usuario_id, plano_id, mp_payment_id, valor, descricao, qr_code_base64, qr_code_copia_cola, status, pix_validade, criado_em) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', DATE_ADD(NOW(), INTERVAL 10 MINUTE), NOW())");
     $stmt->bind_param('iisdsss', $uid, $planoId, $dados['id'], $valor, $descricao, $t['qr_code_base64'], $t['qr_code']);
     $stmt->execute();
     $pix = $conn->query("SELECT * FROM pagamentos_pix WHERE id = " . $conn->insert_id)->fetch_assoc();

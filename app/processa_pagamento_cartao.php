@@ -112,7 +112,7 @@ $statusDb = 'rejected';
 if ($status === 'approved') { $statusDb = 'approved'; }
 elseif ($status === 'pending' || $status === 'in_process') { $statusDb = 'pending'; }
 
-$stmt = $conn->prepare("INSERT INTO pagamentos_pix (usuario_id, plano_id, mp_payment_id, valor, descricao, status, pix_validade) VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))");
+$stmt = $conn->prepare("INSERT INTO pagamentos_pix (usuario_id, plano_id, mp_payment_id, valor, descricao, status, pix_validade, criado_em) VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), NOW())");
 $stmt->bind_param('iiidss', $uid, $planoId, $mpId, $valor, $descricao, $statusDb);
 $stmt->execute();
 
