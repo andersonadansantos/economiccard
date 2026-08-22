@@ -176,7 +176,7 @@ $cfg = $conn->query("SELECT * FROM api_pagamento WHERE id = 1")->fetch_assoc();
 </div>
 <div>
 <label class="block text-xs font-bold text-gray-600 uppercase mb-1">URL do Webhook</label>
-<input type="text" name="webhook_url" value="<?php echo htmlspecialchars($cfg['webhook_url'] ?? ''); ?>" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#51036d]" placeholder="https://seusite.com.br/webhook.php">
+<input type="text" name="webhook_url" value="<?php echo htmlspecialchars($cfg['webhook_url'] ?? ''); ?>" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#51036d]" placeholder="https://economiccard.com.br/webhook.php">
 </div>
 <div>
 <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Redirect URI (OAuth)</label>
@@ -294,7 +294,7 @@ $parceiroConectado = !empty($cfg['parceiro_access_token']);
 <div class="w-8 h-8 rounded-full bg-[#51036d]/10 text-[#51036d] flex items-center justify-center shrink-0 font-extrabold">8</div>
 <div>
 <p class="font-bold text-gray-800 text-sm">Configure o Webhook</p>
-<p class="text-sm text-gray-600">No painel da aplicação, menu <b>Webhooks</b>, cadastre a URL do seu servidor (ex.: <code>https://seusite.com.br/webhook.php</code>) e habilite os eventos de <b>payment</b> (payment.created, payment.approved, payment.rejected). Copie essa mesma URL no campo <b>URL do Webhook</b> do formulário acima e salve. No webhook, valide o cabeçalho <code>X-Signature</code> antes de processar qualquer notificação — sem essa validação, qualquer um pode forjar notificações.</p>
+<p class="text-sm text-gray-600">No painel da aplicação, menu <b>Webhooks</b>, cadastre a URL do seu servidor (<code>https://economiccard.com.br/webhook.php</code>) e habilite os eventos de <b>payment</b> (payment.created, payment.approved, payment.rejected). Copie essa mesma URL no campo <b>URL do Webhook</b> do formulário acima e salve. No webhook, valide o cabeçalho <code>X-Signature</code> antes de processar qualquer notificação — sem essa validação, qualquer um pode forjar notificações.</p>
 </div>
 </div>
 <div class="border border-gray-200 rounded-xl p-4 flex gap-3">
