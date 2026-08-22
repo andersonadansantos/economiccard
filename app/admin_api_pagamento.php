@@ -194,13 +194,22 @@ $cfg = $conn->query("SELECT * FROM api_pagamento WHERE id = 1")->fetch_assoc();
 <?php
 $oauthBase = '';
 $oauthRedirect = '';
+$pkceParams = '';
 if (!empty($cfg['client_id'])) {
     $oauthBase = 'https://auth.mercadopago.com.br/authorization?client_id=' . urlencode($cfg['client_id']) . '&response_type=code&platform_id=mp';
     if (!empty($cfg['redirect_uri'])) {
         $oauthRedirect = '&redirect_uri=' . urlencode($cfg['redirect_uri']);
     }
 }
-$urlParceiro = $oauthBase . $oauthRedirect . ($oauthBase !== '' ? '&state=parceiro' : '');
+if ($oauthBase !== '') {
+    $verificador = rtrim(strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=');
+    $desafio = rtrim(strtr(base64_encode(hash('sha256', $verificador, true)), '+/', '-_'), '=');
+    $stPkce = $conn->prepare("UPDATE api_pagamento SET oauth_code_verifier = ? WHERE id = 1");
+    $stPkce->bind_param('s', $verificador);
+    $stPkce->execute();
+    $pkceParams = '&code_challenge=' . $desafio . '&code_challenge_method=S256';
+}
+$urlParceiro = $oauthBase . $oauthRedirect . ($oauthBase !== '' ? '&state=parceiro' : '') . $pkceParams;
 $parceiroConectado = !empty($cfg['parceiro_access_token']);
 ?>
 <div class="bg-white rounded-xl shadow-sm p-6 mb-6">

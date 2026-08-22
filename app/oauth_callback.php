@@ -26,6 +26,10 @@ if ($code === '') {
             'code' => $code,
             'redirect_uri' => $redirect_uri,
         ];
+        $verificador = trim((string)($cfg['oauth_code_verifier'] ?? ''));
+        if ($verificador !== '') {
+            $post['code_verifier'] = $verificador;
+        }
         $ch = curl_init('https://api.mercadopago.com/oauth/token');
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
@@ -41,6 +45,8 @@ if ($code === '') {
         } else {
             $dados = json_decode($resp, true);
             if ($httpCode >= 200 && $httpCode < 300 && !empty($dados['access_token'])) {
+                $stLimpa = $conn->prepare("UPDATE api_pagamento SET oauth_code_verifier = NULL WHERE id = 1");
+                $stLimpa->execute();
                 if ($state === 'parceiro') {
                     // Autorização do PARCEIRO (sócio): token vai para api_pagamento e
                     // o User ID dele é preenchido automaticamente — sem digitação manual.
