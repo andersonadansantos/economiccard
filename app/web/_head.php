@@ -64,7 +64,6 @@ $tituloPagina = $tituloPagina ?? 'Painel';
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Hanken+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script src="https://sdk.mercadopago.com/js/v2"></script>
 <script>
     tailwind.config = {
         darkMode: "class",

@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+require_once 'asaas_pix.php';
 header('Content-Type: application/json');
 if (!isset($_SESSION['usuario_id'])) {
     echo json_encode(['status' => 'error', 'message' => 'Sessão inválida']);
@@ -21,23 +22,11 @@ if ($u['cartao_ativo']) {
     exit;
 }
 
-$token = '';
-$tr = $conn->query("SELECT access_token FROM api_pagamento WHERE id = 1");
-if ($tr && ($row = $tr->fetch_assoc())) { $token = $row['access_token'] ?? ''; }
-if (!$token) {
-    echo json_encode(['status' => 'error', 'message' => 'API não configurada']);
+$cfg = asaas_config($conn);
+if (!$cfg) {
+    echo json_encode(['status' => 'error', 'message' => 'API de pagamento não configurada']);
     exit;
 }
-
-$paymentMethodId = trim($_POST['payment_method_id'] ?? '');
-$cardToken = trim($_POST['token'] ?? '');
-$installments = max(1, (int)($_POST['installments'] ?? 1));
-$payerEmail = trim($_POST['payer_email'] ?? 'usuario' . $uid . '@economiccard.com.br');
-$payerType = trim($_POST['payer_identification_type'] ?? 'CPF');
-if ($payerType !== 'CPF' && $payerType !== 'CNPJ') { $payerType = 'CPF'; }
-$payerNumber = preg_replace('/\D/', '', $_POST['payer_identification_number'] ?? '');
-if ($payerNumber === '') { $payerNumber = preg_replace('/\D/', '', $u['cpf']); }
-if ($payerNumber === '') { $payerNumber = '00000000000'; }
 
 $planoId = (int)($_POST['plano_id'] ?? 0);
 $plano = $conn->query("SELECT * FROM planos WHERE id = $planoId AND ativo = 1")->fetch_assoc();
@@ -50,54 +39,77 @@ $dias = (int)$plano['dias'];
 $nomePlano = $plano['nome'];
 $descricao = "Ativação Economic Card - $nomePlano - $dias dias";
 
-if (!$cardToken || !$paymentMethodId) {
-    echo json_encode(['status' => 'error', 'message' => 'Dados do cartão inválidos']);
+$holderName = trim($_POST['holder_name'] ?? '');
+$numero = preg_replace('/\D/', '', $_POST['number'] ?? '');
+$ccc = preg_replace('/\D/', '', $_POST['ccc'] ?? '');
+$vencimento = trim($_POST['expiry'] ?? '');
+if (!preg_match('/^(\d{1,2})\s*\/?\s*(\d{2}|\d{4})$/', $vencimento, $m)) {
+    echo json_encode(['status' => 'error', 'message' => 'Validade do cartão inválida (use MM/AA)']);
+    exit;
+}
+$mes = str_pad($m[1], 2, '0', STR_PAD_LEFT);
+if ((int)$mes < 1 || (int)$mes > 12) {
+    echo json_encode(['status' => 'error', 'message' => 'Mês de validade inválido']);
+    exit;
+}
+$ano = strlen($m[2]) === 2 ? ('20' . $m[2]) : $m[2];
+
+$cpfCnpj = preg_replace('/\D/', '', $_POST['cpf_cnpj'] ?? '');
+if ($cpfCnpj === '') {
+    $cpfCnpj = preg_replace('/\D/', '', (string)$u['cpf']);
+}
+
+$postalCode = preg_replace('/\D/', '', $_POST['postal_code'] ?? '');
+if ($postalCode === '') {
+    $postalCode = preg_replace('/\D/', '', (string)$u['cep']);
+}
+
+$addressNumber = trim($_POST['address_number'] ?? '');
+if ($addressNumber === '' && !empty($u['endereco'])) {
+    if (preg_match('/(\d+)/', (string)$u['endereco'], $mm)) {
+        $addressNumber = $mm[1];
+    }
+}
+if ($addressNumber === '') {
+    $addressNumber = 'S/N';
+}
+
+$email = trim((string)$u['email']);
+if ($email === '') {
+    $email = 'usuario' . $uid . '@economiccard.com.br';
+}
+
+if ($holderName === '' || strlen($numero) < 13 || strlen($ccc) < 3 || $cpfCnpj === '' || $postalCode === '') {
+    echo json_encode(['status' => 'error', 'message' => 'Dados do cartão/endereço incompletos']);
     exit;
 }
 
-$payload = json_encode([
-    'transaction_amount' => $valor,
-    'description' => $descricao,
-    'payment_method_id' => $paymentMethodId,
-    'token' => $cardToken,
-    'installments' => $installments,
-    'payer' => [
-        'email' => $payerEmail,
-        'first_name' => $u['nome'],
-        'identification' => ['type' => $payerType, 'number' => $payerNumber]
-    ]
-], JSON_UNESCAPED_UNICODE);
-
-$split = montar_split_pagamento($conn, $valor);
-$authToken = $token;
-if ($split) {
-    $arr = json_decode($payload, true);
-    $arr['application_fee'] = $split['application_fee'];
-    $payload = json_encode($arr, JSON_UNESCAPED_UNICODE);
-    $authToken = $split['mp_access_token'];
+$cust = asaas_obter_customer($cfg, $u);
+if (!$cust['ok']) {
+    echo json_encode(['status' => 'error', 'message' => $cust['message']]);
+    exit;
 }
 
-$ch = curl_init('https://api.mercadopago.com/v1/payments');
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_POST => true,
-    CURLOPT_POSTFIELDS => $payload,
-    CURLOPT_HTTPHEADER => [
-        'Authorization: Bearer ' . $authToken,
-        'Content-Type: application/json',
-        'X-Idempotency-Key: ' . uniqid('card', true)
-    ],
-    CURLOPT_TIMEOUT => 30
+$cob = asaas_criar_cobranca_cartao($cfg, $cust['customer_id'], $valor, $descricao, $uid, [
+    'holderName' => $holderName,
+    'number' => $numero,
+    'expiryMonth' => $mes,
+    'expiryYear' => $ano,
+    'ccc' => $ccc,
+    'cpfCnpj' => $cpfCnpj,
+    'postalCode' => $postalCode,
+    'addressNumber' => $addressNumber,
+    'phone' => $u['whatsapp'] ?? ''
 ]);
-$res = curl_exec($ch);
-curl_close($ch);
-$dados = json_decode($res, true);
+if (!$cob['ok']) {
+    echo json_encode(['status' => 'error', 'message' => $cob['message']]);
+    exit;
+}
 
-$status = strtolower($dados['status'] ?? 'rejected');
-$mpId = $dados['id'] ?? null;
-$statusDetail = $dados['status_detail'] ?? '';
+$payId = (string)$cob['payment']['id'];
+$statusDb = asaas_status_local((string)($cob['payment']['status'] ?? ''));
 
-if ($status === 'approved') {
+if ($statusDb === 'approved') {
     $validade = date('Y-m-d', strtotime('+' . $dias . ' days'));
     $stmt = $conn->prepare("UPDATE usuarios SET cartao_ativo = 1, cartao_validade = ? WHERE id = ?");
     $stmt->bind_param('si', $validade, $uid);
@@ -108,20 +120,12 @@ if ($status === 'approved') {
     }
 }
 
-$statusDb = 'rejected';
-if ($status === 'approved') { $statusDb = 'approved'; }
-elseif ($status === 'pending' || $status === 'in_process') { $statusDb = 'pending'; }
-
-$stmt = $conn->prepare("INSERT INTO pagamentos_pix (usuario_id, plano_id, mp_payment_id, valor, descricao, status, pix_validade, criado_em) VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), NOW())");
-$stmt->bind_param('iiidss', $uid, $planoId, $mpId, $valor, $descricao, $statusDb);
+$stmt = $conn->prepare("INSERT INTO pagamentos_pix (usuario_id, plano_id, mp_payment_id, valor, descricao, status, pix_validade, criado_em, provedor, asaas_payment_id) VALUES (?, ?, 0, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), NOW(), 'asaas', ?)");
+$stmt->bind_param('iidsss', $uid, $planoId, $valor, $descricao, $statusDb, $payId);
 $stmt->execute();
 
-if ($status === 'approved') {
-    echo json_encode(['status' => 'approved', 'mp_payment_id' => $mpId, 'split_aplicado' => (bool)$split]);
-} elseif ($status === 'pending' || $status === 'in_process') {
-    echo json_encode(['status' => 'pending', 'mp_payment_id' => $mpId, 'split_aplicado' => (bool)$split]);
-} else {
-    $msg = $dados['message'] ?? 'Pagamento recusado';
-    if (!empty($dados['error'])) { $msg = $dados['error']; }
-    echo json_encode(['status' => 'rejected', 'message' => $msg, 'detail' => $statusDetail]);
-}
+echo json_encode([
+    'status' => $statusDb,
+    'gateway_payment_id' => $payId,
+    'split_aplicado' => (bool)$cob['split_aplicado']
+]);

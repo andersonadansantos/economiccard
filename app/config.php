@@ -27,28 +27,6 @@ require_once __DIR__ . '/turnstile.php';
 // Contratos: código único + certificação de aceite
 require_once __DIR__ . '/contrato_aceite.php';
 
-// Monta o Split de Pagamentos do Mercado Pago (modelo oficial 1:1 / marketplace).
-// O pagamento é criado usando o access_token OAuth do PARCEIRO (coletor) e a parte da
-// empresa vai no campo application_fee (em R$). O token do parceiro fica salvo na própria
-// tabela api_pagamento (preenchido automaticamente pelo oauth_callback.php com state=parceiro).
-// Afiliados NÃO participam do split — somente o parceiro configurado.
-// Retorna null se não estiver configurado; nesse caso o pagamento segue 100% para a empresa.
-function montar_split_pagamento($conn, $valor) {
-    $cfg = $conn->query("SELECT marketplace_user_id, parceiro_user_id, valor_fixo_parceiro, parceiro_access_token FROM api_pagamento WHERE id = 1")->fetch_assoc();
-    if (!$cfg) return null;
-    $marketplace = trim((string)($cfg['marketplace_user_id'] ?? ''));
-    $valorFixo = round((float)($cfg['valor_fixo_parceiro'] ?? 0), 2);
-    $tokenParceiro = trim((string)($cfg['parceiro_access_token'] ?? ''));
-    if ($marketplace === '' || $tokenParceiro === '' || $valorFixo <= 0 || $valorFixo >= (float)$valor) return null;
-    return [
-        'mp_access_token'     => $tokenParceiro,
-        'collector_id'        => trim((string)($cfg['parceiro_user_id'] ?? '')),
-        'marketplace_user_id' => $marketplace,
-        // Empresa fica com o restante: parceiro recebe exatamente o valor fixo.
-        'application_fee'     => round((float)$valor - $valorFixo, 2),
-    ];
-}
-
 // Desativa cartões com validade expirada (60 dias)
 $conn->query("UPDATE usuarios SET cartao_ativo = 0 WHERE cartao_ativo = 1 AND cartao_validade IS NOT NULL AND cartao_validade < CURDATE()");
 

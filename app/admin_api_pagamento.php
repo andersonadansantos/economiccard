@@ -90,8 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $walletParceiro = trim($_POST['asaas_wallet_parceiro'] ?? '');
     $valorFixoParceiro = round((float)str_replace(',', '.', $_POST['valor_fixo_parceiro'] ?? '0'), 2);
     if ($valorFixoParceiro < 0) { $valorFixoParceiro = 0; }
-    // As credenciais antigas do Mercado Pago permanecem no banco como fallback legado,
-    // mas não são mais editáveis nesta tela.
+    // A tela gerencia exclusivamente as credenciais Asaas.
     $stmt = $conn->prepare("UPDATE api_pagamento SET asaas_api_key=?, asaas_ambiente=?, asaas_wallet_parceiro=?, valor_fixo_parceiro=? WHERE id=1");
     $stmt->bind_param('sssd', $chaveAsaas, $ambienteAsaas, $walletParceiro, $valorFixoParceiro);
     $stmt->execute();
@@ -103,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
         $teste = asaas_testar_conexao($cfgNova);
     } else {
-        $teste = ['ok' => false, 'message' => 'Chave da API Asaas vazia — o sistema continuará operando no modo legado Mercado Pago.'];
+        $teste = ['ok' => false, 'message' => 'Chave da API Asaas vazia — os pagamentos (PIX e cartão) ficarão indisponíveis até a configuração.'];
     }
 }
 
@@ -165,7 +164,7 @@ $splitAtivoAsaas = $asaasAtivo && $walletPreenchida && $vfParceiro > 0;
 </span>
 </div>
 <?php if (!$asaasAtivo): ?>
-<div class="mt-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-3 text-sm"><b>Modo legado ativo:</b> sem a chave Asaas, os pagamentos continuam passando pelo fluxo antigo do Mercado Pago (sem split automático).</div>
+<div class="mt-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-3 text-sm"><b>Atenção:</b> sem a chave Asaas, nenhum pagamento (PIX ou cartão) pode ser processado. Configure a chave para habilitar as cobranças.</div>
 <?php endif; ?>
 </div>
 
@@ -265,19 +264,6 @@ $splitAtivoAsaas = $asaasAtivo && $walletPreenchida && $vfParceiro > 0;
 </div>
 </div>
 </div>
-
-<!-- Legado Mercado Pago -->
-<details class="bg-white rounded-xl shadow-sm p-6 mb-6">
-<summary class="cursor-pointer text-lg font-extrabold text-gray-800">Fallback legado — Mercado Pago (recolhido)</summary>
-<div class="mt-4 text-sm text-gray-600 space-y-3">
-<p>O fluxo antigo do Mercado Pago continua no código e assume automaticamente <b>apenas se a Chave de API do Asaas estiver vazia</b>. Suas credenciais salvas no banco continuam válidas, porém esta tela não edita mais esses campos.</p>
-<ul class="list-disc pl-5 space-y-1">
-<li>Credenciais MP salvas: <b><?php echo trim((string)($cfg['access_token'] ?? '')) !== '' ? 'sim' : 'não'; ?></b></li>
-<li>OAuth do parceiro conectado: <b><?php echo trim((string)($cfg['parceiro_access_token'] ?? '')) !== '' ? 'sim' : 'não'; ?></b></li>
-</ul>
-<p>Para gerenciar essas credenciais, utilize a versão anterior desta página no histórico do git.</p>
-</div>
-</details>
 
 <div class="bg-[#51036d] text-white rounded-xl shadow-sm p-6">
 <div class="flex items-start gap-4">

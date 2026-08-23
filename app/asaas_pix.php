@@ -29,6 +29,7 @@ function asaas_request(array $cfg, $metodo, $caminho, $body = null) {
             'access_token: ' . trim((string)$cfg['asaas_api_key']),
             'Content-Type: application/json'
         ],
+        CURLOPT_USERAGENT => 'EconomicCard/1.0 (+https://economiccard.com.br)',
         CURLOPT_TIMEOUT => 30
     ]);
     if ($body !== null) {
@@ -73,6 +74,16 @@ function asaas_obter_customer(array $cfg, array $u) {
     return ['ok' => false, 'message' => asaas_primeiro_erro($criar, 'Asaas (customer)')];
 }
 
+// Monta o array de split (valor fixo em R$ para a carteira do PARCEIRO) ou null se não configurado.
+function asaas_split_payload(array $cfg, $valor) {
+    $wallet = trim((string)($cfg['asaas_wallet_parceiro'] ?? ''));
+    $valorFixo = round((float)($cfg['valor_fixo_parceiro'] ?? 0), 2);
+    if ($wallet === '' || $valorFixo <= 0 || $valorFixo >= (float)$valor) {
+        return null;
+    }
+    return [['walletId' => $wallet, 'value' => $valorFixo]];
+}
+
 // Cria a cobrança PIX (billingType=PIX) já com o split para o parceiro, quando configurado.
 function asaas_criar_cobranca_pix(array $cfg, $customerId, $valor, $descricao, $uid) {
     $payload = [
@@ -82,12 +93,10 @@ function asaas_criar_cobranca_pix(array $cfg, $customerId, $valor, $descricao, $
         'dueDate' => date('Y-m-d'),
         'description' => (string)$descricao
     ];
-    // Split nativo: VALOR FIXO (R$) vai para a carteira do PARCEIRO; a empresa fica com o restante.
-    $wallet = trim((string)($cfg['asaas_wallet_parceiro'] ?? ''));
-    $valorFixo = round((float)($cfg['valor_fixo_parceiro'] ?? 0), 2);
+    $split = asaas_split_payload($cfg, $valor);
     $splitAplicado = false;
-    if ($wallet !== '' && $valorFixo > 0 && $valorFixo < (float)$valor) {
-        $payload['split'] = [['walletId' => $wallet, 'value' => $valorFixo]];
+    if ($split) {
+        $payload['split'] = $split;
         $splitAplicado = true;
     }
     // Parâmetro uid garante idempotência (evita cobrança duplicada em retry).
@@ -96,6 +105,43 @@ function asaas_criar_cobranca_pix(array $cfg, $customerId, $valor, $descricao, $
         return ['ok' => true, 'payment' => $resp['dados'], 'split_aplicado' => $splitAplicado];
     }
     return ['ok' => false, 'message' => asaas_primeiro_erro($resp, 'Asaas (cobrança)')];
+}
+
+// Cria a cobrança de CARTÃO DE CRÉDITO (billingType=CREDIT_CARD) com split quando configurado.
+function asaas_criar_cobranca_cartao(array $cfg, $customerId, $valor, $descricao, $uid, array $cartao) {
+    $payload = [
+        'customer' => (string)$customerId,
+        'billingType' => 'CREDIT_CARD',
+        'value' => round((float)$valor, 2),
+        'dueDate' => date('Y-m-d'),
+        'description' => (string)$descricao,
+        'creditCard' => [
+            'holderName' => (string)$cartao['holderName'],
+            'number' => preg_replace('/\D/', '', (string)$cartao['number']),
+            'expiryMonth' => (string)$cartao['expiryMonth'],
+            'expiryYear' => (string)$cartao['expiryYear'],
+            'ccc' => preg_replace('/\D/', '', (string)$cartao['ccc'])
+        ],
+        'creditCardHolderInfo' => [
+            'name' => (string)$cartao['holderName'],
+            'email' => (string)$cartao['email'],
+            'cpfCnpj' => preg_replace('/\D/', '', (string)$cartao['cpfCnpj']),
+            'postalCode' => preg_replace('/\D/', '', (string)$cartao['postalCode']),
+            'addressNumber' => (string)$cartao['addressNumber'],
+            'phone' => preg_replace('/\D/', '', (string)($cartao['phone'] ?? ''))
+        ]
+    ];
+    $split = asaas_split_payload($cfg, $valor);
+    $splitAplicado = false;
+    if ($split) {
+        $payload['split'] = $split;
+        $splitAplicado = true;
+    }
+    $resp = asaas_request($cfg, 'POST', '/payments?uid=' . rawurlencode('ec-' . (int)$uid . '-' . uniqid()), $payload);
+    if (!empty($resp['dados']['id'])) {
+        return ['ok' => true, 'payment' => $resp['dados'], 'split_aplicado' => $splitAplicado];
+    }
+    return ['ok' => false, 'message' => asaas_primeiro_erro($resp, 'Asaas (cartão)')];
 }
 
 // Retorna o QR Code PIX (copia e cola + imagem base64) de uma cobrança.

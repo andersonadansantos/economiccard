@@ -1,8 +1,9 @@
 <?php
 // Migração idempotente da integração Asaas (Split de Pagamentos nativo).
 // Uso: php migracao_asaas.php   (ou acesse pelo navegador uma única vez)
-// Cria as colunas necessárias em api_pagamento e pagamentos_pix sem afetar
-// as credenciais legadas do Mercado Pago.
+// Cria as colunas necessárias em api_pagamento e pagamentos_pix.
+// As colunas antigas do Mercado Pago permanecem no banco apenas por histórico
+// (nenhum código as utiliza mais).
 require_once __DIR__ . '/app/config.php';
 
 function coluna_existe($conn, $tabela, $coluna) {
