@@ -17,6 +17,7 @@ $migracoes = [
     ['api_pagamento', 'asaas_api_key', "TEXT NULL AFTER access_token"],
     ['api_pagamento', 'asaas_ambiente', "VARCHAR(10) NOT NULL DEFAULT 'producao' AFTER asaas_api_key"],
     ['api_pagamento', 'asaas_wallet_parceiro', "VARCHAR(64) NULL AFTER asaas_ambiente"],
+    ['api_pagamento', 'valor_fixo_parceiro', "DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER asaas_wallet_parceiro"],
     ['pagamentos_pix', 'provedor', "VARCHAR(10) NOT NULL DEFAULT 'mp' AFTER mp_payment_id"],
     ['pagamentos_pix', 'asaas_payment_id', "VARCHAR(64) NULL AFTER provedor"],
 ];

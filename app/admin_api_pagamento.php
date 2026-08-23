@@ -88,12 +88,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $chaveAsaas = trim($_POST['asaas_api_key'] ?? '');
     $ambienteAsaas = (($_POST['asaas_ambiente'] ?? 'producao') === 'sandbox') ? 'sandbox' : 'producao';
     $walletParceiro = trim($_POST['asaas_wallet_parceiro'] ?? '');
-    $porcentagemParceiro = (float)str_replace(',', '.', $_POST['porcentagem_parceiro'] ?? '0');
-    if ($porcentagemParceiro < 0 || $porcentagemParceiro > 100) { $porcentagemParceiro = 0; }
+    $valorFixoParceiro = round((float)str_replace(',', '.', $_POST['valor_fixo_parceiro'] ?? '0'), 2);
+    if ($valorFixoParceiro < 0) { $valorFixoParceiro = 0; }
     // As credenciais antigas do Mercado Pago permanecem no banco como fallback legado,
     // mas não são mais editáveis nesta tela.
-    $stmt = $conn->prepare("UPDATE api_pagamento SET asaas_api_key=?, asaas_ambiente=?, asaas_wallet_parceiro=?, porcentagem_parceiro=? WHERE id=1");
-    $stmt->bind_param('ssss', $chaveAsaas, $ambienteAsaas, $walletParceiro, $porcentagemParceiro);
+    $stmt = $conn->prepare("UPDATE api_pagamento SET asaas_api_key=?, asaas_ambiente=?, asaas_wallet_parceiro=?, valor_fixo_parceiro=? WHERE id=1");
+    $stmt->bind_param('sssd', $chaveAsaas, $ambienteAsaas, $walletParceiro, $valorFixoParceiro);
     $stmt->execute();
     $sucesso = 'Configuração salva com sucesso!';
     if ($chaveAsaas !== '') {
@@ -110,8 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $cfg = $conn->query("SELECT * FROM api_pagamento WHERE id = 1")->fetch_assoc();
 $asaasAtivo = trim((string)($cfg['asaas_api_key'] ?? '')) !== '';
 $walletPreenchida = trim((string)($cfg['asaas_wallet_parceiro'] ?? '')) !== '';
-$pctParceiro = (float)($cfg['porcentagem_parceiro'] ?? 0);
-$splitAtivoAsaas = $asaasAtivo && $walletPreenchida && $pctParceiro > 0 && $pctParceiro < 100;
+$vfParceiro = (float)($cfg['valor_fixo_parceiro'] ?? 0);
+$splitAtivoAsaas = $asaasAtivo && $walletPreenchida && $vfParceiro > 0;
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -161,7 +161,7 @@ $splitAtivoAsaas = $asaasAtivo && $walletPreenchida && $pctParceiro > 0 && $pctP
 <?php echo $walletPreenchida ? 'Wallet do parceiro cadastrada' : 'Wallet do parceiro pendente'; ?>
 </span>
 <span class="px-3 py-1.5 rounded-full <?php echo $splitAtivoAsaas ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-600 border border-gray-200'; ?>">
-<?php echo $splitAtivoAsaas ? 'SPLIT ATIVO: ' . number_format($pctParceiro, 2, ',', '.') . '% parceiro / ' . number_format(100 - $pctParceiro, 2, ',', '.') . '% empresa' : 'Sem split (100% empresa)'; ?>
+<?php echo $splitAtivoAsaas ? 'SPLIT ATIVO: parceiro recebe R$ ' . number_format($vfParceiro, 2, ',', '.') . ' por pagamento' : 'Sem split (100% empresa)'; ?>
 </span>
 </div>
 <?php if (!$asaasAtivo): ?>
@@ -188,9 +188,9 @@ $splitAtivoAsaas = $asaasAtivo && $walletPreenchida && $pctParceiro > 0 && $pctP
 <p class="text-xs text-gray-500 mt-1">No sandbox use a chave gerada dentro do ambiente de testes.</p>
 </div>
 <div>
-<label class="block text-xs font-bold text-gray-600 uppercase mb-1">Porcentagem do parceiro (%)</label>
-<input type="number" name="porcentagem_parceiro" min="0" max="99.99" step="0.01" value="<?php echo htmlspecialchars(number_format($pctParceiro, 2, '.', '')); ?>" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#51036d]" placeholder="Ex.: 30">
-<p class="text-xs text-gray-500 mt-1">Quanto o parceiro recebe de cada pagamento. O restante fica com a empresa. Com 0, não há split.</p>
+<label class="block text-xs font-bold text-gray-600 uppercase mb-1">Valor fixo do parceiro por pagamento (R$)</label>
+<input type="number" name="valor_fixo_parceiro" min="0" step="0.01" value="<?php echo htmlspecialchars(number_format($vfParceiro, 2, '.', '')); ?>" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#51036d]" placeholder="Ex.: 5.00">
+<p class="text-xs text-gray-500 mt-1">Valor fixo em reais que o parceiro recebe de cada pagamento. O restante fica com a empresa. Com 0, não há split.</p>
 </div>
 <div class="md:col-span-2">
 <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Wallet ID do parceiro (recebedor do split)</label>
@@ -251,9 +251,9 @@ $splitAtivoAsaas = $asaasAtivo && $walletPreenchida && $pctParceiro > 0 && $pctP
   "billingType": "PIX",
   "value": 25.00,
   "dueDate": "2026-08-23",
-  "split": [ { "walletId": "WALLET_ID_DO_PARCEIRO", "percentage": 30 } ]
+  "split": [ { "walletId": "WALLET_ID_DO_PARCEIRO", "value": 5.00 } ]
 }</pre>
-<p class="text-sm text-gray-600 mt-2">Exemplo: cliente paga R$ 100 com 30% para o parceiro → <b>R$ 30 caem na conta do parceiro</b> e <b>R$ 70 ficam na conta da empresa</b>. Em caso de estorno, o valor é devolvido proporcionalmente das duas contas. A confirmação chega pelo webhook (PAYMENT_RECEIVED/CONFIRMED) e o app também consulta o status diretamente.</p>
+<p class="text-sm text-gray-600 mt-2">Exemplo: cliente paga R$ 25 com valor fixo de R$ 5 para o parceiro → <b>R$ 5 caem na conta do parceiro</b> e <b>R$ 20 ficam na conta da empresa</b>. Em caso de estorno, o valor é devolvido proporcionalmente das duas contas. A confirmação chega pelo webhook (PAYMENT_RECEIVED/CONFIRMED) e o app também consulta o status diretamente.</p>
 </div>
 </div>
 <div class="border border-gray-200 rounded-xl p-4 flex gap-3">

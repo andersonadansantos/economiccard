@@ -34,17 +34,18 @@ require_once __DIR__ . '/contrato_aceite.php';
 // Afiliados NÃO participam do split — somente o parceiro configurado.
 // Retorna null se não estiver configurado; nesse caso o pagamento segue 100% para a empresa.
 function montar_split_pagamento($conn, $valor) {
-    $cfg = $conn->query("SELECT marketplace_user_id, parceiro_user_id, porcentagem_parceiro, parceiro_access_token FROM api_pagamento WHERE id = 1")->fetch_assoc();
+    $cfg = $conn->query("SELECT marketplace_user_id, parceiro_user_id, valor_fixo_parceiro, parceiro_access_token FROM api_pagamento WHERE id = 1")->fetch_assoc();
     if (!$cfg) return null;
     $marketplace = trim((string)($cfg['marketplace_user_id'] ?? ''));
-    $pct = (float)($cfg['porcentagem_parceiro'] ?? 0);
+    $valorFixo = round((float)($cfg['valor_fixo_parceiro'] ?? 0), 2);
     $tokenParceiro = trim((string)($cfg['parceiro_access_token'] ?? ''));
-    if ($marketplace === '' || $tokenParceiro === '' || $pct <= 0 || $pct >= 100) return null;
+    if ($marketplace === '' || $tokenParceiro === '' || $valorFixo <= 0 || $valorFixo >= (float)$valor) return null;
     return [
         'mp_access_token'     => $tokenParceiro,
         'collector_id'        => trim((string)($cfg['parceiro_user_id'] ?? '')),
         'marketplace_user_id' => $marketplace,
-        'application_fee'     => round(((100 - $pct) / 100) * (float)$valor, 2),
+        // Empresa fica com o restante: parceiro recebe exatamente o valor fixo.
+        'application_fee'     => round((float)$valor - $valorFixo, 2),
     ];
 }
 

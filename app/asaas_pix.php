@@ -1,13 +1,13 @@
 <?php
 // Integração Asaas (API v3) — PIX com Split de Pagamentos nativo.
 // A cobrança é emitida pela conta da EMPRESA e o parceiro recebe automaticamente
-// o percentual configurado (api_pagamento.porcentagem_parceiro) via walletId.
+// o VALOR FIXO configurado (api_pagamento.valor_fixo_parceiro, em R$) via walletId.
 // O split é definido na própria cobrança: não há fluxo OAuth nem transferência manual.
 // Docs: https://docs.asaas.com/docs/split-de-pagamentos
 
 // Retorna a configuração Asaas ou null se a chave não estiver preenchida.
 function asaas_config($conn) {
-    $r = @$conn->query("SELECT asaas_api_key, asaas_ambiente, asaas_wallet_parceiro, porcentagem_parceiro FROM api_pagamento WHERE id = 1");
+    $r = @$conn->query("SELECT asaas_api_key, asaas_ambiente, asaas_wallet_parceiro, valor_fixo_parceiro FROM api_pagamento WHERE id = 1");
     if (!$r) return null;
     $cfg = $r->fetch_assoc();
     if (!$cfg || trim((string)($cfg['asaas_api_key'] ?? '')) === '') return null;
@@ -82,12 +82,12 @@ function asaas_criar_cobranca_pix(array $cfg, $customerId, $valor, $descricao, $
         'dueDate' => date('Y-m-d'),
         'description' => (string)$descricao
     ];
-    // Split nativo: percentual vai para a carteira do PARCEIRO; a empresa fica com o restante.
+    // Split nativo: VALOR FIXO (R$) vai para a carteira do PARCEIRO; a empresa fica com o restante.
     $wallet = trim((string)($cfg['asaas_wallet_parceiro'] ?? ''));
-    $pct = round((float)($cfg['porcentagem_parceiro'] ?? 0), 4);
+    $valorFixo = round((float)($cfg['valor_fixo_parceiro'] ?? 0), 2);
     $splitAplicado = false;
-    if ($wallet !== '' && $pct > 0 && $pct < 100) {
-        $payload['split'] = [['walletId' => $wallet, 'percentage' => $pct]];
+    if ($wallet !== '' && $valorFixo > 0 && $valorFixo < (float)$valor) {
+        $payload['split'] = [['walletId' => $wallet, 'value' => $valorFixo]];
         $splitAplicado = true;
     }
     // Parâmetro uid garante idempotência (evita cobrança duplicada em retry).
