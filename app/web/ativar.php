@@ -225,8 +225,8 @@ Escaneie o QR Code ou use o código PIX abaixo para ativar seu cartão. Valor: <
 
 <script>
 let planoAtual = <?php echo isset($planos[0]) ? json_encode(['id' => (int)$planos[0]['id'], 'valor' => number_format((float)$planos[0]['valor'], 2, ',', '.'), 'dias' => (int)$planos[0]['dias'], 'nome' => $planos[0]['nome']]) : 'null'; ?>;
-let pixAtivo = <?php echo $pix ? json_encode(['mp_payment_id' => (int)$pix['mp_payment_id'], 'copia_cola' => $pix['qr_code_copia_cola'], 'plano_id' => (int)($pix['plano_id'] ?? 0)]) : 'null'; ?>;
-let mpPaymentId = pixAtivo ? pixAtivo.mp_payment_id : 0;
+let pixAtivo = <?php echo $pix ? json_encode(['id' => (int)$pix['id'], 'gateway_payment_id' => ($pix['provedor'] ?? 'mp') === 'asaas' ? (string)$pix['asaas_payment_id'] : (string)$pix['mp_payment_id'], 'copia_cola' => $pix['qr_code_copia_cola'], 'plano_id' => (int)($pix['plano_id'] ?? 0)]) : 'null'; ?>;
+let pagamentoLocalId = pixAtivo ? (pixAtivo.id || 0) : 0;
 const pixCodeText = pixAtivo ? pixAtivo.copia_cola : '';
 function selecionarPlano(el) {
     document.querySelectorAll('.plan-card').forEach(c => {
@@ -257,7 +257,7 @@ function gerarPix() {
         .then(r => r.json())
         .then(d => {
             if (d.status === 'pending' && d.pix) {
-                pixAtivo = { mp_payment_id: d.pix.mp_payment_id, copia_cola: d.pix.qr_code_copia_cola, plano_id: planoAtual.id };
+                pixAtivo = { id: d.pix.id, gateway_payment_id: d.pix.gateway_payment_id || '', copia_cola: d.pix.qr_code_copia_cola, plano_id: planoAtual.id };
                 const qrBox = document.getElementById('qrBox');
                 if (qrBox) {
                     qrBox.innerHTML = '<img id="qrImg" class="w-full h-full object-contain" src="data:image/png;base64,' + d.pix.qr_code_base64 + '" alt="QR Code PIX"/>';
@@ -278,7 +278,7 @@ function gerarPix() {
                 if (codeText) codeText.textContent = d.pix.qr_code_copia_cola;
                 if (waitBox) waitBox.classList.remove('hidden');
                 if (btn) { btn.remove(); }
-                mpPaymentId = d.pix.mp_payment_id;
+                pagamentoLocalId = d.pix.id;
                 if (polling) clearInterval(polling);
                 polling = setInterval(verificarPagamento, 5000);
                 verificarPagamento();
@@ -335,8 +335,8 @@ function mostrarModalAtivado() {
     setTimeout(() => location.reload(), 2500);
 }
 function verificarPagamento() {
-    if (!mpPaymentId) return;
-    fetch('../verifica_pagamento.php?id=' + mpPaymentId)
+    if (!pagamentoLocalId) return;
+    fetch('../verifica_pagamento.php?id=' + pagamentoLocalId)
         .then(r => r.json())
         .then(d => {
             if (d.status === 'approved') {
@@ -350,8 +350,8 @@ function verificarPagamento() {
         })
         .catch(() => {});
 }
-let polling = mpPaymentId ? setInterval(verificarPagamento, 5000) : null;
-if (mpPaymentId) verificarPagamento();
+let polling = pagamentoLocalId ? setInterval(verificarPagamento, 5000) : null;
+if (pagamentoLocalId) verificarPagamento();
 
 function mostrarAba(aba) {
     const pixBtn = document.getElementById('tabPixBtn');
