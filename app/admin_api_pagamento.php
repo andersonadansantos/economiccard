@@ -6,8 +6,9 @@ if (!($_SESSION['admin_logado'] ?? false)) {
 }
 
 // Senha da área protegida — definida em secrets_local.php (fora do git) ou via env ADMIN_API_SENHA.
+// Padrao: 142536 (usado em producao quando nao ha env nem constantes locais).
 if (!defined('ADMIN_API_SENHA')) {
-    define('ADMIN_API_SENHA', getenv('ADMIN_API_SENHA') ?: '');
+    define('ADMIN_API_SENHA', getenv('ADMIN_API_SENHA') ?: '142536');
 }
 $senhaApi = ADMIN_API_SENHA;
 $erro = '';
