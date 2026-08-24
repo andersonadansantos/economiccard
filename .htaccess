@@ -1,0 +1,19 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Compatibilidade com URLs antigas da raiz: /login.php -> /app/login.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^([A-Za-z0-9_\-]+\.php)$ app/$1 [L]
+
+    # Atalhos sem extensao: /usuario, /admin etc -> /app/...
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^([A-Za-z0-9_\-]+)/?$ app/$1 [L]
+</IfModule>
+
+<FilesMatch "asaas.log">
+Require all denied
+</FilesMatch>

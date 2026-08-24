@@ -54,6 +54,18 @@ function asaas_primeiro_erro(array $resp, $prefixo) {
     return $prefixo . ': HTTP ' . $resp['http'] . (!empty($resp['erro_curl']) ? ' (' . $resp['erro_curl'] . ')' : '');
 }
 
+// Registra payload e resposta em app/logs/asaas.log para diagnóstico de falhas.
+function asaas_log_erro(array $cfg, $caminho, $body, array $resp) {
+    $dir = __DIR__ . '/logs';
+    if (!is_dir($dir)) { @mkdir($dir, 0775, true); }
+    $linha = date('c') . ' ' . asaas_base_url($cfg) . $caminho
+        . "\nPAYLOAD: " . json_encode($body)
+        . "\nRESPOSTA: HTTP " . $resp['http'] . ' ' . json_encode($resp['dados'])
+        . (!empty($resp['erro_curl']) ? ' CURL: ' . $resp['erro_curl'] : '')
+        . "\n------\n";
+    @file_put_contents($dir . '/asaas.log', $linha, FILE_APPEND);
+}
+
 // Busca o customer pelo CPF/CNPJ e cria se ainda não existir.
 function asaas_obter_customer(array $cfg, array $u) {
     $cpfCnpj = preg_replace('/\D/', '', (string)($u['cpf'] ?? ''));
@@ -71,17 +83,19 @@ function asaas_obter_customer(array $cfg, array $u) {
     if (!empty($criar['dados']['id'])) {
         return ['ok' => true, 'customer_id' => (string)$criar['dados']['id']];
     }
+    asaas_log_erro($cfg, '/customers', ['name' => $u['nome'] ?? '', 'cpfCnpj' => $cpfCnpj], $criar);
     return ['ok' => false, 'message' => asaas_primeiro_erro($criar, 'Asaas (customer)')];
 }
 
 // Monta o array de split (valor fixo em R$ para a carteira do PARCEIRO) ou null se não configurado.
+// Campo obrigatório do Asaas é fixedValue (docs: docs.asaas.com/docs/split-de-pagamentos).
 function asaas_split_payload(array $cfg, $valor) {
     $wallet = trim((string)($cfg['asaas_wallet_parceiro'] ?? ''));
     $valorFixo = round((float)($cfg['valor_fixo_parceiro'] ?? 0), 2);
     if ($wallet === '' || $valorFixo <= 0 || $valorFixo >= (float)$valor) {
         return null;
     }
-    return [['walletId' => $wallet, 'value' => $valorFixo]];
+    return [['walletId' => $wallet, 'fixedValue' => $valorFixo]];
 }
 
 // Cria a cobrança PIX (billingType=PIX) já com o split para o parceiro, quando configurado.
@@ -96,7 +110,7 @@ function asaas_criar_cobranca_pix(array $cfg, $customerId, $valor, $descricao, $
     $split = asaas_split_payload($cfg, $valor);
     $splitAplicado = false;
     if ($split) {
-        $payload['split'] = $split;
+        $payload['splits'] = $split;
         $splitAplicado = true;
     }
     // Parâmetro uid garante idempotência (evita cobrança duplicada em retry).
@@ -104,6 +118,7 @@ function asaas_criar_cobranca_pix(array $cfg, $customerId, $valor, $descricao, $
     if (!empty($resp['dados']['id'])) {
         return ['ok' => true, 'payment' => $resp['dados'], 'split_aplicado' => $splitAplicado];
     }
+    asaas_log_erro($cfg, '/payments (pix)', $payload, $resp);
     return ['ok' => false, 'message' => asaas_primeiro_erro($resp, 'Asaas (cobrança)')];
 }
 
@@ -134,13 +149,14 @@ function asaas_criar_cobranca_cartao(array $cfg, $customerId, $valor, $descricao
     $split = asaas_split_payload($cfg, $valor);
     $splitAplicado = false;
     if ($split) {
-        $payload['split'] = $split;
+        $payload['splits'] = $split;
         $splitAplicado = true;
     }
     $resp = asaas_request($cfg, 'POST', '/payments?uid=' . rawurlencode('ec-' . (int)$uid . '-' . uniqid()), $payload);
     if (!empty($resp['dados']['id'])) {
         return ['ok' => true, 'payment' => $resp['dados'], 'split_aplicado' => $splitAplicado];
     }
+    asaas_log_erro($cfg, '/payments (cartao)', $payload, $resp);
     return ['ok' => false, 'message' => asaas_primeiro_erro($resp, 'Asaas (cartão)')];
 }
 
